@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<title>문화관람 서비스 구현 현황</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font-size: 14px; font-family: system-ui, sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<style>
+/* 레이아웃: 한 장짜리 현황판. 총괄 → AI 연동 → 영역별 막대 → 남은 작업(난이도) → 화면별 칩 */
+:root {
+  --bg: #f6f7fa;
+  --surface: #ffffff;
+  --ink: #1b2233;
+  --muted: #5d667a;
+  --line: #dfe3ec;
+  --accent: #284887;
+  --accent-soft: #e4eaf6;
+  --ok: #1f7a4d;
+  --ok-soft: #dcf1e5;
+  --warn: #9a6200;
+  --warn-soft: #fbecd0;
+  --none: #8a92a3;
+  --none-soft: #eceef3;
+  --sans: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151d; --surface: #1a1f2a; --ink: #e6e9f0; --muted: #9ba3b4; --line: #2c3342;
+  --accent: #94aeea; --accent-soft: #233150; --ok: #6fd3a0; --ok-soft: #173a2a;
+  --warn: #f0bf5c; --warn-soft: #3d2f12; --none: #7d8597; --none-soft: #262c38;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12151d; --surface: #1a1f2a; --ink: #e6e9f0; --muted: #9ba3b4; --line: #2c3342;
+  --accent: #94aeea; --accent-soft: #233150; --ok: #6fd3a0; --ok-soft: #173a2a;
+  --warn: #f0bf5c; --warn-soft: #3d2f12; --none: #7d8597; --none-soft: #262c38;
+  color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 32px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 14px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+
+/* 총괄 */
+.hero { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; }
+.ring { width: 168px; height: 168px; max-width: 100%; }
+.ring text { fill: var(--ink); font-family: var(--sans); }
+.hero-text { display: grid; gap: 10px; min-width: 0; }
+.hero-text .big { font-size: 1.15rem; font-weight: 600; }
+.split2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mini { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 4px; }
+.mini b { font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1.2; color: var(--accent); }
+
+/* AI 연동 */
+.ai { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ai-card { border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 8px; align-content: start; }
+.ai-card .t { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; }
+.steps { display: grid; gap: 4px; font-size: 0.85rem; }
+.step { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+
+/* 영역별 막대 */
+.bars { display: grid; gap: 14px; }
+.bar-row { display: grid; grid-template-columns: 170px 1fr 64px; gap: 12px; align-items: center; }
+.bar-row .name { font-weight: 600; }
+.bar-row .name small { display: block; font-weight: 400; color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+.track { height: 14px; background: var(--none-soft); border-radius: 7px; overflow: hidden; }
+.fill { height: 100%; background: var(--accent); border-radius: 7px; }
+.pct { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* 남은 작업 표 */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 560px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.78rem; color: var(--muted); font-weight: 600; letter-spacing: 0.03em; }
+td.grp { font-weight: 600; white-space: nowrap; }
+.lv { display: inline-flex; gap: 3px; vertical-align: middle; }
+.lv i { width: 8px; height: 14px; border-radius: 2px; background: var(--none-soft); display: inline-block; }
+.lv i.on { background: var(--accent); }
+.issue { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+
+/* 화면별 칩 */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.82rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.screens { display: grid; gap: 6px; align-content: start; }
+.scr { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 6px; background: var(--bg); font-size: 0.86rem; }
+.scr .code { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+.chip { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.s-ok { background: var(--ok-soft); color: var(--ok); }
+.s-ui { background: var(--warn-soft); color: var(--warn); }
+.s-part { background: var(--accent-soft); color: var(--accent); }
+.s-no { background: var(--none-soft); color: var(--none); }
+.s-dsn { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.d-dsn { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
+.d-ok { background: var(--ok); } .d-ui { background: var(--warn); } .d-part { background: var(--accent); } .d-no { background: var(--none); }
+
+.focus { border-left: 4px solid var(--accent); }
+ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+li::marker { color: var(--muted); }
+.back { font-size: 0.85rem; color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+.foot { font-size: 0.82rem; color: var(--muted); display: grid; gap: 4px; }
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; justify-items: start; }
+  .cols, .split2, .ai { grid-template-columns: 1fr; }
+  .bar-row { grid-template-columns: 1fr 52px; }
+  .bar-row .track { grid-column: 1 / -1; grid-row: 2; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="back" href="../../">← 보고 목록</a>
+  <header style="display:grid;gap:6px">
+    <span class="eyebrow">비전AI 기반 지능형 문화관람 서비스 · 구현 저장소 vision-ai-museum</span>
+    <h1>구현 현황 (AI 서비스 제외)</h1>
+    <p class="muted">2026-10-29 develop 브랜치 기준 · 사업 종료 2026-12-22까지 약 7주</p>
+  </header>
+
+  <section class="panel hero" aria-label="총괄">
+    <svg class="ring" viewBox="0 0 168 168" role="img" aria-label="난이도 가중 진행률 약 40%">
+      <circle cx="84" cy="84" r="68" fill="none" stroke="var(--none-soft)" stroke-width="16"/>
+      <circle cx="84" cy="84" r="68" fill="none" stroke="var(--accent)" stroke-width="16" stroke-linecap="round"
+        stroke-dasharray="170.9 427.3" transform="rotate(-90 84 84)"/>
+      <text x="84" y="84" text-anchor="middle" font-size="34" font-weight="700">약 40%</text>
+      <text x="84" y="108" text-anchor="middle" font-size="12" style="fill:var(--muted)">난이도 가중</text>
+    </svg>
+    <div class="hero-text">
+      <p class="big">AI 3종 연동과 관람객 핵심 흐름처럼 난도가 높은 기반 작업은 대부분 마쳤습니다. 남은 작업은 관리자 서비스 구현이 중심입니다.</p>
+      <div class="split2">
+        <div class="mini"><span class="muted">관람객 (화면 11개)</span><b>약 70%</b><span class="muted" style="font-size:.82rem">AI 연동·API 대부분 구현, 화면 절반 연결</span></div>
+        <div class="mini"><span class="muted">관리자 (화면 12개)</span><b>약 12%</b><span class="muted" style="font-size:.82rem">계정·감사 API 구현, 화면 디자인 진행 중</span></div>
+      </div>
+      <p class="muted small">참고: 기능 이슈 52건 중 22건 완료(42%), 전체 이슈 170건 중 93건 완료(55%)</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ai">
+    <div class="head"><h2 id="h-ai">AI 서비스 연동</h2><span class="chip s-ok">3종 모두 실서버 연결 확인</span></div>
+    <div class="ai">
+      <div class="ai-card">
+        <div class="t">챗봇 <span class="muted small">I-3</span></div>
+        <div class="steps">
+          <div class="step"><span>실서버 호출</span><span class="chip s-ok">확인 완료</span></div>
+          <div class="step"><span>관람객 API</span><span class="chip s-ok">구현</span></div>
+          <div class="step"><span>앱 화면</span><span class="chip s-ui">화면 완성·연결 전</span></div>
+        </div>
+        <p class="muted small">답변 순차 전송, 음성 인식·답변 음성까지 중계</p>
+      </div>
+      <div class="ai-card">
+        <div class="t">비전AI <span class="muted small">I-2</span></div>
+        <div class="steps">
+          <div class="step"><span>실서버 호출</span><span class="chip s-ok">확인 완료</span></div>
+          <div class="step"><span>관람객 API</span><span class="chip s-part">처리 로직 완료·경로 공개 전</span></div>
+          <div class="step"><span>앱 화면</span><span class="chip s-ui">화면 완성·연결 전</span></div>
+        </div>
+        <p class="muted small">225회 호출, 판정 4종·오류 경로 모두 명세와 일치. 인식 판정·후보 선택 로직 구현 완료</p>
+      </div>
+      <div class="ai-card">
+        <div class="t">이미지생성 AI <span class="muted small">I-4</span></div>
+        <div class="steps">
+          <div class="step"><span>실서버 호출</span><span class="chip s-ok">확인 완료</span></div>
+          <div class="step"><span>관람객 API</span><span class="chip s-ok">구현</span></div>
+          <div class="step"><span>앱 화면</span><span class="chip s-part">얼굴 촬영 화면 진행 중</span></div>
+        </div>
+        <p class="muted small">명세 v0.4(배경·의상·화풍) 반영 완료</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-area">
+    <div class="head"><h2 id="h-area">영역별 진행률</h2><span class="muted small">작업량·난이도 가중</span></div>
+    <div class="bars">
+      <div class="bar-row"><span class="name">관람객 백엔드<small>AI 연동 포함</small></span><div class="track"><div class="fill" style="width:74%"></div></div><span class="pct">~74%</span></div>
+      <div class="bar-row"><span class="name">관람객 화면<small>11개 중 5개 API 연결</small></span><div class="track"><div class="fill" style="width:65%"></div></div><span class="pct">~65%</span></div>
+      <div class="bar-row"><span class="name">관리자 백엔드<small>계정·권한, 감사이력 구현</small></span><div class="track"><div class="fill" style="width:20%"></div></div><span class="pct">~20%</span></div>
+      <div class="bar-row"><span class="name">관리자 화면<small>디자인 진행 중, 이어서 구현</small></span><div class="track"><div class="fill" style="width:0%"></div></div><span class="pct">0%</span></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-todo">
+    <div class="head"><h2 id="h-todo">남은 작업과 난이도</h2><span class="muted small">남은 작업량의 약 3/4이 관리자 서비스</span></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>구분</th><th>작업</th><th>난이도</th><th>비고</th></tr></thead>
+        <tbody>
+          <tr><td class="grp">관람객</td><td>비전AI 인식 경로 공개 <span class="issue">#277</span></td><td><span class="lv" aria-label="하"><i class="on"></i><i></i><i></i></span></td><td class="muted">완료 직전. 처리 로직 완성, 컨트롤러·업로드 검사만 남음</td></tr>
+          <tr><td class="grp"></td><td>인식·챗봇 화면 실제 API 연결</td><td><span class="lv" aria-label="중"><i class="on"></i><i class="on"></i><i></i></span></td><td class="muted">화면 완성, 순차 전송·녹음 연결</td></tr>
+          <tr><td class="grp"></td><td>기념품 3개 화면 <span class="muted">(V08~V10)</span>, 기본 결과물 API <span class="issue">#293</span></td><td><span class="lv" aria-label="중"><i class="on"></i><i class="on"></i><i></i></span></td><td class="muted">백엔드 API 준비됨</td></tr>
+          <tr><td class="grp"></td><td>챗봇 대화 복구(최대 40개) <span class="issue">#258</span></td><td><span class="lv" aria-label="중"><i class="on"></i><i class="on"></i><i></i></span></td><td class="muted">저장 기준 확정 후 진행</td></tr>
+          <tr><td class="grp">관리자</td><td>로그인·인증 <span class="issue">#169</span></td><td><span class="lv" aria-label="중"><i class="on"></i><i class="on"></i><i></i></span></td><td class="muted">완료 시 계정·감사 API 바로 연결</td></tr>
+          <tr><td class="grp"></td><td>전시물 등록·편집·변경이력 <span class="issue">#171</span></td><td><span class="lv" aria-label="상"><i class="on"></i><i class="on"></i><i class="on"></i></span></td><td class="muted">5개 언어 콘텐츠·이미지·공개 전환</td></tr>
+          <tr><td class="grp"></td><td>재색인·챗봇 색인용 View <span class="issue">#172 #157</span></td><td><span class="lv" aria-label="중"><i class="on"></i><i class="on"></i><i></i></span></td><td class="muted">설계(DB-01) 확정됨</td></tr>
+          <tr><td class="grp"></td><td>이용·인식·챗봇·미션 현황 통계 <span class="issue">#173</span></td><td><span class="lv" aria-label="상"><i class="on"></i><i class="on"></i><i class="on"></i></span></td><td class="muted">운영이력 기록 모듈은 구현됨</td></tr>
+          <tr><td class="grp"></td><td>서비스 운영·시스템 현황 <span class="issue">#174</span></td><td><span class="lv" aria-label="중"><i class="on"></i><i class="on"></i><i></i></span></td><td class="muted">AI 상태확인 호출은 구현됨</td></tr>
+          <tr><td class="grp"></td><td>관리자 화면 12개 구현</td><td><span class="lv" aria-label="상"><i class="on"></i><i class="on"></i><i class="on"></i></span></td><td class="muted">화면 설계·프로토타입 완료, 디자인 진행 중</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-scr">
+    <h2 id="h-scr">화면별 상태</h2>
+    <div class="legend">
+      <span><i class="dot d-ok"></i>완료(API 연결)</span>
+      <span><i class="dot d-ui"></i>화면 완성(연결 예정)</span>
+      <span><i class="dot d-part"></i>일부·백엔드만</span>
+      <span><i class="dot d-dsn"></i>디자인 진행 중</span>
+    </div>
+    <div class="cols">
+      <div class="screens">
+        <span class="eyebrow">관람객</span>
+        <div class="scr"><span class="code">V01</span><span>언어 선택</span><span class="chip s-ok">완료</span></div>
+        <div class="scr"><span class="code">V02</span><span>이용안내</span><span class="chip s-ok">완료</span></div>
+        <div class="scr"><span class="code">V03</span><span>나의 여정(홈)</span><span class="chip s-ok">완료</span></div>
+        <div class="scr"><span class="code">V04</span><span>카메라 인식</span><span class="chip s-ui">화면 완성</span></div>
+        <div class="scr"><span class="code">V05</span><span>인식 후보 선택</span><span class="chip s-ui">화면 완성</span></div>
+        <div class="scr"><span class="code">V06</span><span>전시물 목록·검색</span><span class="chip s-ok">완료</span></div>
+        <div class="scr"><span class="code">V07</span><span>전시물 상세·음성해설</span><span class="chip s-ok">완료</span></div>
+        <div class="scr"><span class="code">V08</span><span>기본 결과물(기념품)</span><span class="chip s-part">백엔드만</span></div>
+        <div class="scr"><span class="code">V09</span><span>얼굴 촬영</span><span class="chip s-part">일부</span></div>
+        <div class="scr"><span class="code">V10</span><span>얼굴합성 결과</span><span class="chip s-part">백엔드만</span></div>
+        <div class="scr"><span class="code">V11</span><span>챗봇 대화</span><span class="chip s-ui">화면 완성</span></div>
+      </div>
+      <div class="screens">
+        <span class="eyebrow">관리자</span>
+        <div class="scr"><span class="code">M01</span><span>로그인</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M02</span><span>관람·이용현황</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M03</span><span>전시물 목록</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M04</span><span>전시물 등록·편집·재색인</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M05</span><span>콘텐츠 변경이력</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M06</span><span>비전AI 인식현황</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M07</span><span>챗봇·RAG 현황</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M08</span><span>미션·체험현황</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M09</span><span>서비스 운영현황</span><span class="chip s-dsn">디자인 진행 중</span></div>
+        <div class="scr"><span class="code">M10</span><span>계정·권한 관리</span><span class="chip s-part">백엔드 완료·디자인 중</span></div>
+        <div class="scr"><span class="code">M11</span><span>감사이력</span><span class="chip s-part">백엔드 완료·디자인 중</span></div>
+        <div class="scr"><span class="code">M12</span><span>시스템 현황</span><span class="chip s-dsn">디자인 진행 중</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel focus" aria-labelledby="h-next">
+    <h2 id="h-next">다음 단계 중점</h2>
+    <ul>
+      <li>관람객: 이미 준비된 백엔드 API를 화면에 연결하는 작업이 중심이라 난도가 낮습니다.</li>
+      <li>관리자: 로그인 → 전시물 관리 → 현황 통계 순으로 진행하면 이미 만든 API와 프로토타입, 진행 중인 화면 디자인을 바로 활용할 수 있습니다.</li>
+      <li>전시물 관리와 현황 통계는 난도가 높아 먼저 착수하는 것이 좋습니다.</li>
+    </ul>
+  </section>
+
+  <footer class="foot">
+    <p>산정 기준: 설계 화면 23개와 서비스 백엔드 API를 develop 브랜치 코드와 대조하고, 작업 항목마다 작업량·난이도 가중치를 두어 계산했습니다. 화면만 완성되어 연결 전인 항목은 일부 진행으로 반영했습니다.</p>
+    <p>코드와 이슈를 기준으로 한 추정치입니다. 비전AI·챗봇·이미지생성 AI 서비스 자체는 범위에서 제외했습니다.</p>
+  </footer>
+</div>
+
+</body>
+</html>
