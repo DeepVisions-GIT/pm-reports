@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<title>AI·데이터 구축 현황</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font-size: 14px; font-family: system-ui, sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<style>
+/* 레이아웃: 총괄 카드 4개(서비스별 게이지) → 서비스별 상세 패널(완료·진행·남은 일) → 근거·한계 */
+:root {
+  --bg: #f6f7fa;
+  --surface: #ffffff;
+  --ink: #1b2233;
+  --muted: #5d667a;
+  --line: #dfe3ec;
+  --accent: #284887;
+  --accent-soft: #e4eaf6;
+  --ok: #1f7a4d;
+  --ok-soft: #dcf1e5;
+  --warn: #9a6200;
+  --warn-soft: #fbecd0;
+  --none: #8a92a3;
+  --none-soft: #eceef3;
+  --sans: "IBM Plex Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151d; --surface: #1a1f2a; --ink: #e6e9f0; --muted: #9ba3b4; --line: #2c3342;
+  --accent: #94aeea; --accent-soft: #233150; --ok: #6fd3a0; --ok-soft: #173a2a;
+  --warn: #f0bf5c; --warn-soft: #3d2f12; --none: #7d8597; --none-soft: #262c38;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12151d; --surface: #1a1f2a; --ink: #e6e9f0; --muted: #9ba3b4; --line: #2c3342;
+  --accent: #94aeea; --accent-soft: #233150; --ok: #6fd3a0; --ok-soft: #173a2a;
+  --warn: #f0bf5c; --warn-soft: #3d2f12; --none: #7d8597; --none-soft: #262c38;
+  color-scheme: dark; }
+
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 32px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.1rem; font-weight: 700; }
+h3 { font-size: 0.82rem; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; }
+p { margin: 0; }
+.eyebrow { font-size: 0.75rem; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 14px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.note { border-left: 4px solid var(--warn); background: var(--warn-soft); color: var(--ink); border-radius: 8px; padding: 12px 14px; font-size: 0.88rem; }
+
+/* 총괄 카드 */
+.overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.ov { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.ov .name { font-weight: 700; }
+.ov .who { font-size: 0.8rem; color: var(--muted); }
+.ring { width: 96px; height: 96px; }
+.ring text { fill: var(--ink); font-family: var(--sans); }
+.ov .stage { font-size: 0.85rem; }
+
+/* 서비스 상세 */
+.svc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.svc-head .pct { font-size: 1.4rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.track { height: 10px; background: var(--none-soft); border-radius: 5px; overflow: hidden; flex: 1 1 160px; }
+.fill { height: 100%; background: var(--accent); border-radius: 5px; }
+.cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.col { display: grid; gap: 8px; align-content: start; min-width: 0; }
+ul { margin: 0; padding-left: 1.1em; display: grid; gap: 5px; font-size: 0.9rem; }
+li::marker { color: var(--muted); }
+.chip { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.s-ok { background: var(--ok-soft); color: var(--ok); }
+.s-ui { background: var(--warn-soft); color: var(--warn); }
+.s-part { background: var(--accent-soft); color: var(--accent); }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kv div { background: var(--bg); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.kv b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.kv span { font-size: 0.8rem; color: var(--muted); }
+.issue { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+.toplinks { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.back { font-size: 0.85rem; color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+.foot { font-size: 0.82rem; color: var(--muted); display: grid; gap: 4px; }
+
+@media (max-width: 900px) { .overview { grid-template-columns: repeat(2, 1fr); } .cols3 { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .overview { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="toplinks"><a class="back" href="../../">← 보고 목록</a><a class="back" href="../../progress/2026-11-18/">서비스 구현 현황 →</a></nav>
+  <header style="display:grid;gap:6px">
+    <span class="eyebrow">비전AI 기반 지능형 문화관람 서비스</span>
+    <h1>AI 서비스·데이터 구축 현황</h1>
+    <p class="muted">2026-11-18 기준 · 비전AI · 챗봇(RAG) · 이미지생성 AI · 데이터 구축</p>
+  </header>
+
+  <p class="note">API 명세서, 관람 서비스의 실서버 연동 기록, 설계·구현 저장소 이슈, 데이터셋 적재 결과를 근거로 추정했습니다. 비전AI는 담당 확인 내용을 반영했고, 나머지는 담당별 확인에 따라 이후 보고에서 조정합니다.</p>
+
+  <section class="overview" aria-label="총괄">
+    <div class="ov">
+      <span class="name">비전AI</span><span class="who">딥비전스 · 전시물 인식</span>
+      <svg class="ring" viewBox="0 0 96 96" role="img" aria-label="약 80%"><circle cx="48" cy="48" r="38" fill="none" stroke="var(--none-soft)" stroke-width="10"/><circle cx="48" cy="48" r="38" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="191.0 238.8" transform="rotate(-90 48 48)"/><text x="48" y="54" text-anchor="middle" font-size="20" font-weight="700">80%</text></svg>
+      <span class="stage">1차 학습·현장 시험 완료 · 정확도 보강 중</span>
+    </div>
+    <div class="ov">
+      <span class="name">챗봇(RAG)</span><span class="who">그린다에이아이 · 질의응답·음성</span>
+      <svg class="ring" viewBox="0 0 96 96" role="img" aria-label="약 75%"><circle cx="48" cy="48" r="38" fill="none" stroke="var(--none-soft)" stroke-width="10"/><circle cx="48" cy="48" r="38" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="179.1 238.8" transform="rotate(-90 48 48)"/><text x="48" y="54" text-anchor="middle" font-size="20" font-weight="700">75%</text></svg>
+      <span class="stage">기능 연동 완료 · 데이터 반영·품질 검증 단계</span>
+    </div>
+    <div class="ov">
+      <span class="name">이미지생성 AI</span><span class="who">딥비전스 · 얼굴합성 기념품</span>
+      <svg class="ring" viewBox="0 0 96 96" role="img" aria-label="약 75%"><circle cx="48" cy="48" r="38" fill="none" stroke="var(--none-soft)" stroke-width="10"/><circle cx="48" cy="48" r="38" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="179.1 238.8" transform="rotate(-90 48 48)"/><text x="48" y="54" text-anchor="middle" font-size="20" font-weight="700">75%</text></svg>
+      <span class="stage">장면·화풍 3종 제공 · 처리시간·품질 보완</span>
+    </div>
+    <div class="ov">
+      <span class="name">데이터 구축</span><span class="who">위프코 · RAG·다국어 데이터셋</span>
+      <svg class="ring" viewBox="0 0 96 96" role="img" aria-label="약 50%"><circle cx="48" cy="48" r="38" fill="none" stroke="var(--none-soft)" stroke-width="10"/><circle cx="48" cy="48" r="38" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="119.4 238.8" transform="rotate(-90 48 48)"/><text x="48" y="54" text-anchor="middle" font-size="20" font-weight="700">50%</text></svg>
+      <span class="stage">스키마 확정 · 데이터셋 초안 · 검수 대기</span>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-vision">
+    <div class="svc-head"><h2 id="h-vision">비전AI</h2><span class="chip s-part">딥비전스</span><div class="track"><div class="fill" style="width:80%"></div></div><span class="pct">~80%</span></div>
+    <div class="cols3">
+      <div class="col"><h3>완료</h3><ul>
+        <li>인식 API 명세 v0.4 확정(판정 4종, 후보 최대 4건, 동시 10건·3초)</li>
+        <li>인식 모델 1차 학습</li>
+        <li>현장 시험 실시, 인식 이미지 4,023장 확보(11-12~13) <span class="issue">museum#605</span></li>
+        <li>관람 앱 카메라 인식·후보 선택 실연결, 관리자 인식현황·실패 이력 API 구현</li>
+      </ul></div>
+      <div class="col"><h3>진행 중</h3><ul>
+        <li>현장 시험 결과를 반영한 정확도 확보 추가 작업</li>
+      </ul></div>
+      <div class="col"><h3>남은 일</h3><ul>
+        <li>성능 기준 확인: Top-1 90% 이상·오확정 5% 이하·응답 1초 내외(대상 유물 확정 후 최종 협의)</li>
+        <li>현장 GPU(MIG) 환경 배포</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-chat">
+    <div class="svc-head"><h2 id="h-chat">챗봇(RAG)</h2><span class="chip s-part">그린다에이아이</span><div class="track"><div class="fill" style="width:75%"></div></div><span class="pct">~75%</span></div>
+    <div class="cols3">
+      <div class="col"><h3>완료</h3><ul>
+        <li>챗봇 API 명세 v0.2(업체 CHAT-API-001 v0.6) 설계 문서 반영</li>
+        <li>개발 서버 실호출: 답변 순차 전송(첫 응답 0.7초), 세션, 공통 질문</li>
+        <li>음성 질문 인식·답변 음성, 대화 복구, 5개 언어 응답</li>
+        <li>관리자 재색인 요청·색인상태·이용현황 API 구현</li>
+      </ul></div>
+      <div class="col"><h3>진행 중</h3><ul>
+        <li>공개 전시물 색인용 View 연계, 확정 스키마 기준 구조 반영 <span class="issue">docs#171</span></li>
+        <li>전시물 51건 × 5개 언어 해설 음성 제공(검수 전 초안)</li>
+      </ul></div>
+      <div class="col"><h3>남은 일</h3><ul>
+        <li>검수 완료 데이터셋으로 재색인</li>
+        <li>중국어·일본어 질의응답 안정화와 전문가 언어 검수</li>
+        <li>응답 성능 검증: 첫 응답 1초·전체 95% 10초 이내</li>
+        <li>근거 적합성·환각 방지 등 AI 품질 시험</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-img">
+    <div class="svc-head"><h2 id="h-img">이미지생성 AI</h2><span class="chip s-part">딥비전스</span><div class="track"><div class="fill" style="width:75%"></div></div><span class="pct">~75%</span></div>
+    <div class="cols3">
+      <div class="col"><h3>완료</h3><ul>
+        <li>생성 API 명세 v0.4: 배경·의상·화풍 개별 선택, 의례 배경·의상 등록</li>
+        <li>화풍 3종(실사·동양화·애니메이션) 허용 <span class="issue">museum#526</span></li>
+        <li>입력품질 확인(얼굴 검출·흐림·눈 가림 등) 사유 반환</li>
+        <li>관람 앱 장면·화풍 선택 → 촬영 → 결과 실연결</li>
+      </ul></div>
+      <div class="col"><h3>진행 중</h3><ul>
+        <li>화풍별 결과 품질 다듬기</li>
+        <li>생성 대기시간 기준 운영(현재 최대 200초 대기 허용) <span class="issue">museum#452</span></li>
+      </ul></div>
+      <div class="col"><h3>남은 일</h3><ul>
+        <li>처리시간 단축과 동시 처리 용량 확인</li>
+        <li>결과 품질·안전성 판정 기준 점검</li>
+        <li>현장 GPU(MIG) 환경 배포</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-data">
+    <div class="svc-head"><h2 id="h-data">데이터 구축</h2><span class="chip s-part">위프코</span><div class="track"><div class="fill" style="width:50%"></div></div><span class="pct">~50%</span></div>
+    <div class="kv" aria-label="데이터셋 초안 규모">
+      <div><b>51건</b><span>대상 전시물(목표 50건 이상)</span></div>
+      <div><b>5개 언어</b><span>전시물별 해설(외국어 AI 초벌)</span></div>
+      <div><b>2,566행</b><span>문화용어 풀이(용어×언어)</span></div>
+      <div><b>164건</b><span>전시물 관계·연계</span></div>
+      <div><b>5점</b><span>미션 대상 확정</span></div>
+    </div>
+    <div class="cols3">
+      <div class="col"><h3>완료</h3><ul>
+        <li>RAG 데이터셋 스키마 정의서 확정, 설계 정본 반영(11-17)</li>
+        <li>3관 RAG 데이터셋 v1.0 초안으로 관람 서비스 시드 적재</li>
+        <li>전시물 ID·언어 코드·승인 단위 확정</li>
+        <li>서비스 DB 표준(데이터 표준사전) 착수</li>
+      </ul></div>
+      <div class="col"><h3>진행 중</h3><ul>
+        <li>데이터셋 v1.0 승인(현재 미승인 초안)</li>
+        <li>외국어 해설 검수(AI 초벌 상태)</li>
+        <li>대표 이미지 원본 확보(현재 PDF 추출 저해상도 64장)</li>
+      </ul></div>
+      <div class="col"><h3>남은 일</h3><ul>
+        <li>데이터셋 규모 기준(약 7만 5천 개) 충족 확인</li>
+        <li>품질 검수·전문가 언어 검수 완료</li>
+        <li>검수 완료 해설로 음성 재생성</li>
+        <li>최종 납품물 운영 DB 적재·검증</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p>근거: API 명세서(설계 문서 저장소 상세설계/API), 관람 서비스 저장소의 실서버 연동·시드 데이터·이슈, 설계 문서 저장소 이슈, 사업수행 기준문서 v0.8. 진행률은 확인된 산출물을 기준으로 한 추정치입니다.</p>
+    <p>각 AI 서비스의 모델 학습·내부 구현과 위프코의 작업 진척은 직접 확인하지 못해, 담당별 확인 후 조정합니다.</p>
+  </footer>
+</div>
+
+</body>
+</html>

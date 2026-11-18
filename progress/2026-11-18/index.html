@@ -114,6 +114,7 @@ td.grp { font-weight: 600; white-space: nowrap; }
 .focus { border-left: 4px solid var(--accent); }
 ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
 li::marker { color: var(--muted); }
+.toplinks { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 .back { font-size: 0.85rem; color: var(--accent); text-decoration: none; }
 .back:hover { text-decoration: underline; }
 .foot { font-size: 0.82rem; color: var(--muted); display: grid; gap: 4px; }
@@ -129,7 +130,7 @@ li::marker { color: var(--muted); }
 <body>
 
 <div class="wrap">
-  <a class="back" href="../../">← 보고 목록</a>
+  <nav class="toplinks"><a class="back" href="../../">← 보고 목록</a><a class="back" href="../../ai-data/2026-11-18/">AI 서비스·데이터 구축 현황 →</a></nav>
   <header style="display:grid;gap:6px">
     <span class="eyebrow">비전AI 기반 지능형 문화관람 서비스 · 구현 저장소 vision-ai-museum</span>
     <h1>구현 현황 (AI 서비스 제외)</h1>

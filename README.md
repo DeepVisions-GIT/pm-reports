@@ -12,7 +12,7 @@
 | `index.html` | 보고 목록(종류별) |
 | `<종류>/<YYYY-MM-DD>/index.html` | 보고 한 건. 다른 파일에 의존하지 않는 HTML 한 장 |
 
-보고 종류: `progress`(구현 현황)
+보고 종류: `progress`(서비스 구현 현황), `ai-data`(AI 서비스·데이터 구축 현황)
 
 ## 보고 추가
 
